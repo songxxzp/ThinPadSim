@@ -1,7 +1,7 @@
 ThinPAD Clicker
 
 ```
-pip install pyautogui pynput
+pip install pyautogui pynput  # 如果不需要截图的话可以不需要pyautogui
 python ThinPAD.py
 ```
 
@@ -11,4 +11,4 @@ python ThinPAD.py
 
 如需重新校准，删除 `button_map.json`
 
-截图存放在 `lab2`文件夹下
+截图存放在 `lab3`文件夹下

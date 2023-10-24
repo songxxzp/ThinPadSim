@@ -1,6 +1,5 @@
 import pyautogui
 import pynput.mouse as pm
-import threading
 import time
 import random
 import os
@@ -34,7 +33,7 @@ OPMAP = {
 
 button_map.update(dict([(str(i), None)for i in range(32)]))
 
-
+ctr = pm.Controller()
 pressed_cnt = 0
 button_to_be_click = ["0", "7", "31", "RST", "CLK", "LeftUp", "RightDown"]
 
@@ -80,10 +79,12 @@ def calibrate():
 
 
 def click_button(button_name: str, sleep=CLICK_INTERVAL / 2):
-    global button_map
+    global button_map, ctr
+    ctr.move(button_map[button_name][0] - ctr.position[0], button_map[button_name][1] - ctr.position[1])
     time.sleep(sleep)
-    pyautogui.click(button_map[button_name][0], button_map[button_name][1],button='left')
+    ctr.press(pm.Button.left)
     time.sleep(sleep)
+    ctr.release(pm.Button.left)
 
 
 def reset():
@@ -174,7 +175,7 @@ def test_op(rd, rs1, rs2, op, screen_shot=None):
     show_reg(rd, screen_shot)
 
 if __name__ == "__main__":
-    save_path = "lab2"  # input("Save path : ")
+    save_path = "lab3"  # input("Save path : ")
     print(f"save_path: {save_path}")
     os.makedirs(os.path.join(save_path), exist_ok=True)
     print(f"CLICK_INTERVAL: {CLICK_INTERVAL}")
@@ -193,11 +194,14 @@ if __name__ == "__main__":
 
     time.sleep(0.5)
 
+    reset()
     # test_reg(0, random.randint(0, 65535), screen_shot=os.path.join(save_path, "OP0"))
     test_reg(1, random.randint(0, 65535), screen_shot=os.path.join(save_path, "OP1"))
-    test_reg(2, random.randint(0, 65535), screen_shot=os.path.join(save_path, "OP2"))
-    run_op(3, 1, 2, "ADD", screen_shot=os.path.join(save_path, "OP3"))
-    show_reg(3, screen_shot=os.path.join(save_path, "OP3"))
-
-
+    
+    # Before conducting a complete test, ensure that the program is correct.
+    
+    # test_reg(2, random.randint(0, 65535), screen_shot=os.path.join(save_path, "OP2"))
+    # for idx, op in enumerate(OPMAP):
+    #     run_op(3 + idx, 1 + idx, 2 + idx, op, screen_shot=os.path.join(save_path, f"OP{3 + idx}"))
+    #     show_reg(3 + idx, screen_shot=os.path.join(save_path, f"OP{3 + idx}"))
 
