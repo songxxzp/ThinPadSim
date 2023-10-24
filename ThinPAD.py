@@ -1,9 +1,14 @@
-import pyautogui
+try:
+    import pyautogui
+except:
+    print("Failed to import pyautogui, screenshot disabled.")
 import pynput.mouse as pm
 import time
 import random
 import os
 import json
+
+from functools import partial
 
 
 CLICK_INTERVAL = 0.15
@@ -78,13 +83,14 @@ def calibrate():
     click_button('RST')
 
 
-def click_button(button_name: str, sleep=CLICK_INTERVAL / 2):
+def click_button(button_name: str, click_interval=CLICK_INTERVAL):
     global button_map, ctr
     ctr.move(button_map[button_name][0] - ctr.position[0], button_map[button_name][1] - ctr.position[1])
-    time.sleep(sleep)
+    time.sleep(click_interval / 4)
     ctr.press(pm.Button.left)
-    time.sleep(sleep)
+    time.sleep(click_interval / 2)
     ctr.release(pm.Button.left)
+    time.sleep(click_interval / 4)
 
 
 def reset():
@@ -123,35 +129,45 @@ def unset_inst(inst: str):
     set_inst(inst)
 
 
-def set_reg(reg, num, screen_shot=None):
+def logger(save_path, test_name, f):
+    try:
+        img = pyautogui.screenshot().crop(button_map["LeftUp"] + button_map["RightDown"])
+        img_path = os.path.join(save_path, f'{test_name}.png')
+        img.save(img_path)
+    except Exception as exception:
+        print("Screenshot failed:")
+        print(exception)
+    f.write(f'#### {test_name}\n')
+    f.write(f'![{test_name}]({img_path} "{test_name}")\n')
+
+
+def set_reg(reg, num, test_name=None, test_log=None):
     print(f"Setting Reg_{reg} to {convert_to_bit(num)}.")
     inst_poke = poke(reg, num)
     set_inst(inst_poke)
     step()
-    if screen_shot is not None:
-        im = pyautogui.screenshot().crop(button_map["LeftUp"] + button_map["RightDown"])
-        im.save(screen_shot + f'_Set_Reg_{reg}_to_{num}.png')
+    if test_log is not None and test_name is not None:
+        test_log(test_name=test_name + f'_Set_Reg_{reg}_to_{num}')
     unset_inst(inst_poke)
 
 
-def show_reg(reg, screen_shot=None):
+def show_reg(reg, test_name=None, test_log=None):
     print(f"Showing Reg_{reg}.")
     inst_peek = peek(reg, 0)
     set_inst(inst_peek)
     step()
-    if screen_shot is not None:
-        im = pyautogui.screenshot().crop(button_map["LeftUp"] + button_map["RightDown"])
-        im.save(screen_shot + f'_Show_Reg_{reg}.png')
+    if test_log is not None and test_name is not None:
+        test_log(test_name=test_name + f'_Show_Reg_{reg}')
     unset_inst(inst_peek)
 
 
-def test_reg(reg, num, screen_shot=None):
+def test_reg(reg, num, test_name, test_log):
     # write num to reg and then read it.
-    set_reg(reg, num, screen_shot)
-    show_reg(reg, screen_shot)
+    set_reg(reg, num, test_name, test_log)
+    show_reg(reg, test_name, test_log)
 
 
-def run_op(rd, rs1, rs2, op, screen_shot=None):
+def run_op(rd, rs1, rs2, op, test_name=None, test_log=None):
     if isinstance(op, int):
         opcode = op
     elif isinstance(op, str):
@@ -162,17 +178,16 @@ def run_op(rd, rs1, rs2, op, screen_shot=None):
     inst_r = '0' * 7 + convert_to_bit(rs2, 5) + convert_to_bit(rs1, 5) + "000" + convert_to_bit(rd, 5) + convert_to_bit(opcode, 4) + "001"
     set_inst(inst_r)
     step()
-    if screen_shot is not None:
-        im = pyautogui.screenshot().crop(button_map["LeftUp"] + button_map["RightDown"])
-        im.save(screen_shot + f'_Reg_{rd}=Reg_{rs1}_{op}_Reg_{rs2}.png')
+    if test_log is not None and test_name is not None:
+        test_log(test_name=test_name + f'_Reg_{rd}=Reg_{rs1}_{op}_Reg_{rs2}')
     unset_inst(inst_r)
 
 
-def test_op(rd, rs1, rs2, op, screen_shot=None):
-    show_reg(rs1, screen_shot)
-    show_reg(rs2, screen_shot)
-    run_op(rd, rs1, rs2, op, screen_shot)
-    show_reg(rd, screen_shot)
+def test_op(rd, rs1, rs2, op, test_name=None, test_log=None):
+    show_reg(rs1, test_name, test_log)
+    show_reg(rs2, test_name, test_log)
+    run_op(rd, rs1, rs2, op, test_name, test_log)
+    show_reg(rd, test_name, test_log)
 
 if __name__ == "__main__":
     save_path = "lab3"  # input("Save path : ")
@@ -194,14 +209,15 @@ if __name__ == "__main__":
 
     time.sleep(0.5)
 
-    reset()
-    # test_reg(0, random.randint(0, 65535), screen_shot=os.path.join(save_path, "OP0"))
-    test_reg(1, random.randint(0, 65535), screen_shot=os.path.join(save_path, "OP1"))
-    
-    # Before conducting a complete test, ensure that the program is correct.
-    
-    # test_reg(2, random.randint(0, 65535), screen_shot=os.path.join(save_path, "OP2"))
-    # for idx, op in enumerate(OPMAP):
-    #     run_op(3 + idx, 1 + idx, 2 + idx, op, screen_shot=os.path.join(save_path, f"OP{3 + idx}"))
-    #     show_reg(3 + idx, screen_shot=os.path.join(save_path, f"OP{3 + idx}"))
+    with open("lab3.md", 'w', encoding='utf-8') as f:
+        reset()
+        test_reg(0, random.randint(0, 65535), test_name="OP0", test_log=partial(logger, save_path=save_path, f=f))
+        test_reg(1, random.randint(0, 65535), test_name="OP1", test_log=partial(logger, save_path=save_path, f=f))
+        
+        # Before conducting a complete test, ensure that the program is correct.
+        
+        test_reg(2, random.randint(0, 65535), test_name="OP2", test_log=partial(logger, save_path=save_path, f=f))
+        for idx, op in enumerate(OPMAP):
+            run_op(3 + idx, 1 + idx, 2 + idx, op, test_name=f"OP{3 + idx}", test_log=partial(logger, save_path=save_path, f=f))
+            show_reg(3 + idx, test_name=f"OP{3 + idx}", test_log=partial(logger, save_path=save_path, f=f))
 
